@@ -18,6 +18,8 @@ def compute_histogram(gray_img):
     return hist
 
 
+
+
 def quantize_gray(gray_img, levels=4):
     """
     Lượng tử hóa mức xám để tạo vùng tô phẳng (cartoon-like).
@@ -35,14 +37,7 @@ def painting_pipeline(gray_img,
                       smoothing_params=None,
                       edge_params=None,
                       quant_levels=4):
-    """
-    CARTOON pipeline:
-    1. Smoothing (Gaussian / Bilateral)
-    2. Edge detection (Sobel / LoG / Canny)
-    3. Invert edge → biên đen
-    4. Quantize gray
-    5. Overlay
-    """
+  
     if edge_params is None:
         edge_params = {}
     if smoothing_params is None:

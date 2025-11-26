@@ -263,8 +263,11 @@ class ImageSketchApp:
         self.log_param_frame = tk.Frame(sec_edge.content, bg=SECONDARY_BG)
         SliderControl(self.log_param_frame, "Sigma (Gaussian)",
                       self.log_sigma, 0.5, 5.0, 0.1).pack(fill=tk.X)
-        SliderControl(self.log_param_frame, "Kernel size (ít ảnh hưởng)",
-                      self.log_kernel, 3, 15, 2, fg=TEXT_SECONDARY).pack(fill=tk.X)
+        
+        SliderControl(self.log_param_frame, "Kernel size (LoG kernel)",
+              self.log_kernel, 3, 31, 2, fg=TEXT_SECONDARY).pack(fill=tk.X)
+
+
 
         self.canny_param_frame = tk.Frame(sec_edge.content, bg=SECONDARY_BG)
         SliderControl(self.canny_param_frame, "Gaussian Sigma",

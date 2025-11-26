@@ -30,35 +30,70 @@ def sobel_edge(gray_img, threshold=50):
     return edges, mag_norm
 
 
+def make_log_kernel(kernel_size=5, sigma=1.0):
+    """Tạo kernel Laplacian-of-Gaussian (LoG) 2D.
+
+    kernel_size: kích thước kernel (3, 5, 7, ...), phải lẻ.
+    sigma: độ lệch chuẩn của Gaussian bên trong LoG.
+    """
+    sigma = float(sigma)
+    if sigma <= 0:
+        sigma = 0.1
+
+    k = int(kernel_size)
+    if k < 3:
+        k = 3
+    if k % 2 == 0:
+        k += 1
+
+    radius = k // 2
+    ax = np.arange(-radius, radius + 1, dtype=np.float32)
+    xx, yy = np.meshgrid(ax, ax)
+
+    r2 = xx * xx + yy * yy
+    sigma2 = sigma * sigma
+
+    # LoG(x, y) ≈ (r^2 - 2σ^2) / σ^4 * exp(-r^2 / (2σ^2))
+    norm = (r2 - 2.0 * sigma2) / (sigma2 * sigma2)
+    kernel = norm * np.exp(-r2 / (2.0 * sigma2))
+
+    # Chuẩn hóa về mean = 0 để không làm lệch sáng toàn ảnh
+    kernel -= kernel.mean()
+    return kernel.astype(np.float32)
+
+
 def log_edge(gray_img, sigma=1.0, kernel_size=5, threshold=0.0):
+    """Phát hiện biên bằng Laplacian-of-Gaussian (LoG) + zero-crossing.
+
+    gray_img   : ảnh xám 2D.
+    sigma      : độ lệch chuẩn Gaussian trong LoG.
+    kernel_size: kích thước kernel LoG (lẻ, >=3).
+    threshold  : ngưỡng chênh lệch (max - min) trong vùng lân cận
+                 để zero-crossing được xem là biên thật.
     """
-    LoG edge detection - BẢN TỐI ƯU:
-    - Gaussian blur (separable) với sigma
-    - Laplacian 3x3
-    - Zero-crossing
-    """
-    # 1. Làm mịn bằng Gaussian separable
-    blurred = gaussian_blur_separable(gray_img, sigma)
+    img = gray_img.astype(np.float32)
 
-    # 2. Laplacian kernel 3x3
-    lap = np.array([[0,  1, 0],
-                    [1, -4, 1],
-                    [0,  1, 0]], dtype=np.float32)
+    # 1) Tạo kernel LoG theo sigma & kernel_size
+    k = make_log_kernel(kernel_size=kernel_size, sigma=sigma)
 
-    log_resp = convolve2d(blurred, lap)
+    # 2) Áp dụng LoG kernel lên ảnh
+    log_resp = convolve2d(img, k)
 
-    # 3. Zero-crossing
     h, w = log_resp.shape
     edges = np.zeros_like(log_resp, dtype=np.float32)
 
+    # 3) Dò zero-crossing trong lân cận 3×3
     for i in range(1, h - 1):
         for j in range(1, w - 1):
             patch = log_resp[i - 1:i + 2, j - 1:j + 2]
-            if patch.max() > 0 and patch.min() < 0:
-                if abs(patch.max() - patch.min()) > threshold:
+            pmax = patch.max()
+            pmin = patch.min()
+            if pmax > 0 and pmin < 0:
+                if abs(pmax - pmin) > threshold:
                     edges[i, j] = 255.0
 
     return edges
+
 
 
 def gradient_sobel(gray_img):
