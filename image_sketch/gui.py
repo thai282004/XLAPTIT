@@ -175,21 +175,59 @@ class ImageSketchApp:
         sidebar.pack(side=tk.LEFT, fill=tk.Y)
         sidebar.pack_propagate(False)
 
-        canvas_scroll = tk.Canvas(sidebar, bg=PRIMARY_BG,
+        # Scrollable area container (keeps apply button fixed below)
+        scroll_container = tk.Frame(sidebar, bg=PRIMARY_BG)
+        scroll_container.pack(fill=tk.BOTH, expand=True)
+
+        canvas_scroll = tk.Canvas(scroll_container, bg=PRIMARY_BG,
                                   highlightthickness=0)
         scroll_frame = tk.Frame(canvas_scroll, bg=PRIMARY_BG)
-        vbar = tk.Scrollbar(sidebar, orient=tk.VERTICAL,
+        vbar = tk.Scrollbar(scroll_container, orient=tk.VERTICAL,
                             command=canvas_scroll.yview)
         canvas_scroll.configure(yscrollcommand=vbar.set)
 
-        canvas_scroll.create_window((0, 0), window=scroll_frame, anchor="nw")
+        # Create a window on the canvas and keep its id so we can
+        # update the inner frame width when the canvas resizes.
+        inner_id = canvas_scroll.create_window((0, 0), window=scroll_frame, anchor="nw")
 
-        def _on_config(e):
-            canvas_scroll.configure(scrollregion=canvas_scroll.bbox("all"),
-                                    width=sidebar.winfo_width())
-        scroll_frame.bind("<Configure>", _on_config)
+        # When the inner frame changes size, update the scrollregion.
+        def _on_frame_config(e):
+            canvas_scroll.configure(scrollregion=canvas_scroll.bbox("all"))
+        scroll_frame.bind("<Configure>", _on_frame_config)
+
+        # When the canvas itself changes size (e.g. window resize),
+        # update the inner window width so the content wraps properly
+        # and the scrollbar doesn't disappear/overlap.
+        def _on_canvas_config(e):
+            canvas_scroll.itemconfigure(inner_id, width=e.width)
+        canvas_scroll.bind("<Configure>", _on_canvas_config)
+
+        # Mouse-wheel support (Windows/Mac/Linux). Use bind_all for
+        # simplicity so wheel works when pointer is over the sidebar.
+        def _on_mousewheel(e):
+            # Linux: Button-4 / Button-5 events use e.num
+            if hasattr(e, 'num') and e.num in (4, 5):
+                delta = -1 if e.num == 4 else 1
+                canvas_scroll.yview_scroll(delta, "units")
+            else:
+                # Windows / macOS: e.delta is multiple of 120
+                try:
+                    step = int(-e.delta / 120)
+                except Exception:
+                    step = 0
+                if step != 0:
+                    canvas_scroll.yview_scroll(step, "units")
+
+        canvas_scroll.bind_all("<MouseWheel>", _on_mousewheel)
+        canvas_scroll.bind_all("<Button-4>", _on_mousewheel)
+        canvas_scroll.bind_all("<Button-5>", _on_mousewheel)
+
         canvas_scroll.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         vbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Apply button container fixed at bottom so it's always visible
+        apply_frame = tk.Frame(sidebar, bg=PRIMARY_BG)
+        apply_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=8, pady=8)
 
         # Content area
         content = tk.Frame(main, bg=PRIMARY_BG)
@@ -268,13 +306,13 @@ class ImageSketchApp:
                       "Blur Sigma",
                       self.pencil_sigma, 3.0, 20.0, 1.0).pack(fill=tk.X)
 
-        tk.Button(scroll_frame, text="▶ Apply Processing",
-                  command=self.on_apply,
-                  bg=ACCENT_COLOR, fg="white",
-                  activebackground=ACCENT_HOVER,
-                  relief=tk.FLAT, bd=0,
-                  font=("Segoe UI", 10, "bold"),
-                  cursor="hand2").pack(fill=tk.X, padx=10, pady=10)
+        tk.Button(apply_frame, text="▶ Apply Processing",
+              command=self.on_apply,
+              bg=ACCENT_COLOR, fg="white",
+              activebackground=ACCENT_HOVER,
+              relief=tk.FLAT, bd=0,
+              font=("Segoe UI", 10, "bold"),
+              cursor="hand2").pack(fill=tk.X, padx=6, pady=4)
 
         # ----- Content: images + hist -----
         img_panel = tk.Frame(content, bg=PRIMARY_BG)
